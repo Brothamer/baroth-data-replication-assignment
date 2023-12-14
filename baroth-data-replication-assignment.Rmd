@@ -1,30 +1,258 @@
 ---
 title: "baroth-data-replication-assignment"
 author: "Brooke Rothamer"
-date: "'sys_date()'"
+date: "'2023-11-02"
 output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, comment = "##", prompt = TRUE, tidy = TRUE, tidy.opts = list(width.cutoff = 75), fig.path = "img/")
 ```
 
-## R Markdown
+# Preparation
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+Installing packages:
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+* Install: {tidyverse}, {distributions3}, {ggpubr}, {gridExtra}, {lme4}, {emmeans}, {effects}, {Rmisc}, {Matrix}
 
-```{r cars}
-summary(cars)
+* Certain versions of {Matrix} and {lme4} have a compatibility issue. I had to manually delete both packages and reinstall, following the advice of Mikael Jagan at https://stackoverflow.com/questions/77481539/error-in-initializeptr-function-cholmod-factor-ldeta-not-provided-by-pack
+```{r, eval=FALSE}
+oo <- options(repos = "https://cran.r-project.org/")
+install.packages("Matrix")
+install.packages("lme4")
+options(oo)
 ```
 
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
+Load in packages.
+```{r, warning=FALSE}
+library(tidyverse)
+library(distributions3)
+library(ggpubr)
+library(gridExtra)
+library(lme4)
+library(emmeans)
+library(effects)
+library(Rmisc)
+library(Matrix)
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+Load in the original data.
+```{r load in data}
+study1 <- read.csv("https://raw.githubusercontent.com/Brothamer/baroth-data-replication-assignment/main/Rosati_etal_Trust_Study1.csv")
+```
+
+# Study 1 Replication
+
+The purpose of Study 1 was to test whether 4-year-olds, the youngest participants, could comprehend the rules of the game used to test economic trust in the later studies. Rosati et al. tested 1) average performance on comprehension tests, 2) average performance in two conditions, and 3) trial-by-trial performance accounting for repeated measures, condition, trial number, and comprehension check scores. 
+
+## 1) Comprehension Tests
+
+Do 4-year-olds show above chance (50%) performance on comprehension questions?
+Ho: Performance is not greater than 50%.
+HA: Performance is greater than 50%.
+
+Reformatting the data frame to have one entry per subject because each subject only has 1 score for comprehension proportion:
+```{r}
+study1_comprehension <- distinct( #Remove duplicate rows so that each subject has only 1 entry
+                            subset(study1, select = -c(Trial_absolute, Trial_condition, Condition, Share))) #Remove columns not relevant to this specific analysis so that each subject has 16 identical entries
+study1_comprehension
+```
+### Mean 
+
+Mean comprehension proportion correct:
+```{r}
+comprehension_mean <- mean(study1_comprehension$Comp_prop_correct)
+comprehension_mean
+```
+Rosati et al. reported mean: 69.8%
+My mean: 69.8125%
+
+Yay!
+
+### Confidence Interval
+
+Confidence interval of the mean:
+```{r}
+t.test(study1_comprehension$Comp_prop_correct)
+
+#Or
+
+mean(study1_comprehension$Comp_prop_correct) + quantile(StudentsT(df=15), 0.05 / 2) * sd(study1_comprehension$Comp_prop_correct) / sqrt(16)
+
+mean(study1_comprehension$Comp_prop_correct) + quantile(StudentsT(df=15), 1 - 0.05 / 2) * sd(study1_comprehension$Comp_prop_correct) / sqrt(16)
+```
+Rosati et al reported 95% confidence interval: [55.2, 84.4%]
+My 95% confidence interval: [55.23865, 88.438635%]
+
+Yay!
+
+
+### One-Sample, One-Tailed T-test
+
+One sample, one-tailed T test of whether the mean percent correct is greater than chance (50%).
+```{r}
+comprehension_mean_ttest<- t.test(study1_comprehension$Comp_prop_correct, mu=0.5, alternative = "greater")
+comprehension_mean_ttest
+```
+Rosati et al reported values: t15 = 2.90, p < 0.05
+My values: t15 = 2.8976, p = 0.005524
+
+Yay!
+
+Note: the confidence interval from this one-tailed t-test is not the reported confidence interval of the mean in general.
+
+## 2) Response to task by condition
+
+Are 4-year-olds more likely to share (opposed to not share) when they have access to the other side of the game (i.e. when they can receive what they shared)?
+Ho: No difference in probability of sharing between Access and No Access conditions.
+HA: Probability of sharing is greater in the Access condition than the No Access condition.
+
+### Reformat data frame so there is one mean probablity of sharing for each subject
+
+```{r}
+study1_share <- aggregate(Share ~ ID + Condition, data=study1, FUN = mean)
+study1_share
+```
+
+
+### Means
+
+```{r}
+condition_means <- aggregate(Share ~ Condition, data=study1_share, FUN = mean)
+condition_means
+```
+Rosati et al. reported means: Access = 83.6%, No Access = 56.3%
+My means: Access = 83.59375%, No Access = 56.25000%
+
+Yay!
+
+### Confidence interval for the mean difference
+```{r}
+t.test(Share ~ Condition, data = study1_share, paired = TRUE)
+```
+Rosati et al reported 95% confidence interval: [6.2, 48.4%]
+My 95% confidence interval: [6.24982, 48.43768%]
+
+Yay!
+
+### Paired-Samples, One-Tailed T-test
+
+```{r}
+t.test(Share ~ Condition, data = study1_share, paired = TRUE, alternative = "greater")
+```
+
+Rosati et al reported values: t15 = 2.76, p < 0.05
+My values: t15 = 2.763, p = 0.007251
+
+Yay!
+
+## Figure Replication
+
+Preparing dataframe for first-trial of each condition barplot:
+```{r}
+study1_firsttrial <- study1[study1$Trial_condition == 1, ]
+prop_share_firsttrial <- aggregate(Share ~ Condition, data=study1_firsttrial, FUN = mean)
+prop_share_firsttrial
+```
+
+
+```{r}
+share_summary <- study1_share %>%
+  group_by(Condition) %>%
+  summarise(
+    Quantile = quantile(StudentsT(df=15), 0.05 / 2) * sd(Share) / sqrt(16),
+    Share = mean(Share)
+  )
+
+ggbarplot(study1_share, x = "Condition", y = "Share",
+ add = "mean_ci", lab.vjust = -1.6, fill = "Condition", 
+          palette = c("gray39", "gray"),
+          ylab = "Proportion Choices to Share", main = "(a) Overall", ylim = c(0,1)) +
+  theme_bw() +
+  theme(plot.title = element_text(hjust=0.5), legend.position="none", axis.title.x = element_blank())
+
+Overall_withLegend <- ggbarplot(share_summary, x = "Condition", y = "Share", 
+          fill = "Condition", 
+          palette = c("gray39", "gray"),
+          ylab = "Proportion Choices to Share", main = "(a) Overall") +
+  geom_errorbar(aes(ymin = Share-Quantile, ymax=Share+Quantile), width = 0.1) +
+  theme_bw() +
+  theme(plot.title = element_text(hjust=0.5), axis.title.x = element_blank())
+
+Overall <- ggbarplot(share_summary, x = "Condition", y = "Share", 
+          fill = "Condition", 
+          palette = c("gray39", "gray"),
+          ylab = "Proportion Choices to Share", main = "(a) Overall") +
+  geom_errorbar(aes(ymin = Share-Quantile, ymax=Share+Quantile), width = 0.1) +
+  theme_bw() +
+  theme(plot.title = element_text(hjust=0.5), legend.position="none", axis.title.x = element_blank())
+
+FirstTrial <- ggbarplot(prop_share_firsttrial, x = "Condition", y = "Share",
+          fill = "Condition", 
+          palette = c("gray39", "gray"),
+          ylab = "Proportion Individuals Transferring", ylim = c(0,1), main = "(b) First Trial") +
+  theme_bw() +
+  theme(plot.title = element_text(hjust=0.5), legend.position="none", axis.title.x = element_blank())
+```
+
+```{r}
+get_legend<-function(myggplot){
+  tmp <- ggplot_gtable(ggplot_build(myggplot))
+  leg <- which(sapply(tmp$grobs, function(x) x$name) == "guide-box")
+  legend <- tmp$grobs[[leg]]
+  return(legend)
+}
+legend <- get_legend(Overall_withLegend)
+
+
+barplots <- ggarrange(Overall, FirstTrial, legend, ncol = 3, widths=c(2.3, 2.3, 0.8))
+barplots
+```
+
+Rosati et al. published figure:
+
+![](img/rosati_etal_figure.png)
+
+Problem: using multiple methods, I am getting different 95% confidence intervals for the means of each condition in figure S3(a). When I calculate the confidence intervals of the means outside of creating the figure (see below), I get confidence intervals that match my version of the figure: Access 95% CI = [0.670, 1.002], No Access = [0.374, 0.751.]. The figure in Rosati et al appears to have slightly narrower confidence intervals. The authors specified that the 95% confidence intervals are calculated within subject, so I know that is not the problem (though I also calculated the CIs for all trials independently just in case.)
+
+Confidence intervals of Share means for each condition:
+```{r}
+study1_share_access <- study1_share[study1_share$Condition == "Access",]
+study1_share_noaccess <- study1_share[study1_share$Condition == "NoAccess",]
+t.test(study1_share_access$Share)
+t.test(study1_share_noaccess$Share)
+```
+## Trial by Trial GLMMs
+"To analyze trial-by-trial binary responses, we implemented generalized linear mixed models (GLMM) in R v 3.6 [1] using the lme4 package [2] to fit binomial models with a logit link function using maximum likelihood. All models included **random subject intercepts** (to account for repeated measures) and an **individual’s average performance on comprehension check questions**; including comprehension check performance ensured that analyses accounted for any individual variation in task understanding (for example, between the two age groups). As relevant, models also included **trial number (within condition)** when performance across multiple trials per condition were analyzed, and partner identification response (for Study 3). We then **added our main predictors of interest to subsequent models to test their importance**, comparing model fit using likelihood ratio tests [3]. Post-hoc pair-wise comparisons of model predictors were computed using the emmeans package [4]. Graphs showing predicted effects and 95% confidence intervals (CIs) from these models were calculated using the effects package [5]. We calculated 95% confidence intervals (CIs) for descriptive statistics using the t-distribution, and graphs depicting 95% CIs as error bars were calculated using within-subject normalized CIs using the methods from [6], implemented using the RMisc package [7]."
+
+"We then examined 4-year-olds trial-by-trial choices using GLMMs to confirm that they distinguished the Access and No Access conditions when their responses were modeled as a binary outcome. A base model included trial number (1-8) and average performance on comprehension check questions. A second model then added condition as an additional predictor, which improved model fit (LRT: χ 2 = 34.54, df = 1, p < 0.0001). This indicates that 4-year-olds did differentiate these situations, sharing more in the Access condition. A final model then added the interaction between trial number and condition to examine if there were learning effects or other changes over trials that differed by condition. In fact, this did not improve model fit (LRT: χ2 = 0.88, df = 1, p = 0.34, n.s.; see Table S1 for parameters and Figure S3c), suggesting that children showed fairly consistent performance across the session."
+
+*Share ~ Condition + Trial_condition + (1|ID) + ϵ*
+```{r}
+basemod = glmer(data = study1, formula = Share ~ Trial_condition + Comp_prop_correct + (1 | ID), family = binomial(link = "probit"))
+
+summary(basemod)
+```
+```{r}
+conditionmod = glmer(data = study1, formula = Share ~ Trial_condition + Comp_prop_correct + Condition + (1 | ID), family = binomial(link = "probit"))
+
+summary(conditionmod)
+```
+
+```{r}
+LRT1<-anova(basemod, conditionmod)
+LRT1
+```
+
+
+```{r}
+fullmod = glmer(data = study1, formula = Share ~ Trial_condition + Comp_prop_correct + Condition + Condition*Trial_condition + (1 | ID), family = binomial(link = "probit"))
+
+summary(fullmod)
+```
+
+```{r}
+LRT2<-anova(conditionmod, fullmod)
+LRT2
+```
+
