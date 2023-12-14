@@ -9,6 +9,27 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE, warning = FALSE, comment = "##", prompt = TRUE, tidy = TRUE, tidy.opts = list(width.cutoff = 75), fig.path = "img/")
 ```
 
+# Overview
+
+In this analysis, I will replicate the analyses in Study 1 of Rosati et al. (2019), "Economic trust in young children."
+
+The purpose of Study 1 was to test whether 4-year-olds, the youngest participants (age 4), could comprehend the rules of the economic game used to test economic trust in the later studies. Rosati et al. tested 1) average performance on comprehension tests, 2) average performance in two conditions, and 3) trial-by-trial performance accounting for repeated measures, condition, trial number, and comprehension check scores.
+
+The analyses I replicate:
+1) Performance on comprehension tests
+  1a) Mean
+  1b) Confidence interval
+  1c) One sample, one-tailed t-test
+2) Comparison of performance in two conditions of the game
+  2a) Means
+  2b) Confidence intervals
+  2c) Two sample, one-tailed t-test
+3) Figure replication
+  3a) Replicate two barplots
+  3b) Suggest a boxplot as an alternative
+4) Trial-by-trial performance in two conditions of the game
+  4a) GLMM Fitting
+  4b) GlMM Comparison using likelihood ratio tests
 # Preparation
 
 Installing packages:
@@ -25,25 +46,19 @@ options(oo)
 
 Load in packages.
 ```{r, warning=FALSE}
-library(tidyverse)
-library(distributions3)
-library(ggpubr)
-library(gridExtra)
-library(lme4)
-library(emmeans)
-library(effects)
-library(Rmisc)
-library(Matrix)
+library(tidyverse) #for some of the data organizing
+library(distributions3) #for StudentsT()
+library(ggpubr) #for ggplot functions and ggarrange()
+library(gridExtra) 
+library(lme4) #for glmer()
+library(Matrix) #for glmer()
 ```
 
-Load in the original data.
+Load in the original data as formatted by the authors.
 ```{r load in data}
 study1 <- read.csv("https://raw.githubusercontent.com/Brothamer/baroth-data-replication-assignment/main/Rosati_etal_Trust_Study1.csv")
+head(study1)
 ```
-
-# Study 1 Replication
-
-The purpose of Study 1 was to test whether 4-year-olds, the youngest participants, could comprehend the rules of the game used to test economic trust in the later studies. Rosati et al. tested 1) average performance on comprehension tests, 2) average performance in two conditions, and 3) trial-by-trial performance accounting for repeated measures, condition, trial number, and comprehension check scores. 
 
 ## 1) Comprehension Tests
 
@@ -51,13 +66,14 @@ Do 4-year-olds show above chance (50%) performance on comprehension questions?
 Ho: Performance is not greater than 50%.
 HA: Performance is greater than 50%.
 
-Reformatting the data frame to have one entry per subject because each subject only has 1 score for comprehension proportion:
+Subsetting the data frame to have one entry per subject because each subject only has 1 score for comprehension proportion:
 ```{r}
 study1_comprehension <- distinct( #Remove duplicate rows so that each subject has only 1 entry
                             subset(study1, select = -c(Trial_absolute, Trial_condition, Condition, Share))) #Remove columns not relevant to this specific analysis so that each subject has 16 identical entries
-study1_comprehension
+head(study1_comprehension)
 ```
-### Mean 
+
+### 1a) Mean 
 
 Mean comprehension proportion correct:
 ```{r}
@@ -67,37 +83,39 @@ comprehension_mean
 Rosati et al. reported mean: 69.8%
 My mean: 69.8125%
 
-Yay!
+Mean was successfully replicated.
 
-### Confidence Interval
+### 1b) Confidence Interval
 
 Confidence interval of the mean:
 ```{r}
-t.test(study1_comprehension$Comp_prop_correct)
+#upper = mean + (quantile method confidence level)(sample standard error)/(sqrt(n))
+mean(study1_comprehension$Comp_prop_correct) +  quantile(StudentsT(df=15), 0.05 / 2) * sd(study1_comprehension$Comp_prop_correct) / sqrt(16)
+#lower= mean - (quantile method confidence level)(sample standard error)/(sqrt(n))
+mean(study1_comprehension$Comp_prop_correct) + quantile(StudentsT(df=15), 1 - 0.05 / 2) * sd(study1_comprehension$Comp_prop_correct) / sqrt(16)
 
 #Or
 
-mean(study1_comprehension$Comp_prop_correct) + quantile(StudentsT(df=15), 0.05 / 2) * sd(study1_comprehension$Comp_prop_correct) / sqrt(16)
-
-mean(study1_comprehension$Comp_prop_correct) + quantile(StudentsT(df=15), 1 - 0.05 / 2) * sd(study1_comprehension$Comp_prop_correct) / sqrt(16)
+t.test(study1_comprehension$Comp_prop_correct) #faster to use the t.test() function
+#But it has to be a two-sided t-test!
 ```
 Rosati et al reported 95% confidence interval: [55.2, 84.4%]
 My 95% confidence interval: [55.23865, 88.438635%]
 
-Yay!
+Confidence interval was successfully replicated.
 
-
-### One-Sample, One-Tailed T-test
+### 1c) One-Sample, One-Tailed T-test
 
 One sample, one-tailed T test of whether the mean percent correct is greater than chance (50%).
 ```{r}
-comprehension_mean_ttest<- t.test(study1_comprehension$Comp_prop_correct, mu=0.5, alternative = "greater")
-comprehension_mean_ttest
+t.test(study1_comprehension$Comp_prop_correct, 
+       mu=0.5, #mean expected by chance
+       alternative = "greater") #testing if the observed mean is greater than the null
 ```
 Rosati et al reported values: t15 = 2.90, p < 0.05
 My values: t15 = 2.8976, p = 0.005524
 
-Yay!
+T-test results were successfully replicated.
 
 Note: the confidence interval from this one-tailed t-test is not the reported confidence interval of the mean in general.
 
@@ -107,51 +125,61 @@ Are 4-year-olds more likely to share (opposed to not share) when they have acces
 Ho: No difference in probability of sharing between Access and No Access conditions.
 HA: Probability of sharing is greater in the Access condition than the No Access condition.
 
-### Reformat data frame so there is one mean probablity of sharing for each subject
+### 2a) Means
 
+Aggregate data frame so there is one mean probability of sharing for each subject:
 ```{r}
+#apply the function mean to the Share of each group of observations with the same condition and ID
 study1_share <- aggregate(Share ~ ID + Condition, data=study1, FUN = mean)
-study1_share
+head(study1_share)
 ```
 
-
-### Means
-
+Calculate the means of each condition:
 ```{r}
+#apply the function mean to the Share of each group of observations with the same condition
 condition_means <- aggregate(Share ~ Condition, data=study1_share, FUN = mean)
 condition_means
 ```
 Rosati et al. reported means: Access = 83.6%, No Access = 56.3%
 My means: Access = 83.59375%, No Access = 56.25000%
 
-Yay!
+Means were successfully replicated.
 
-### Confidence interval for the mean difference
+### 2b) Confidence intervals of the mean difference
 ```{r}
-t.test(Share ~ Condition, data = study1_share, paired = TRUE)
+t.test(Share ~ Condition, 
+       data = study1_share, 
+       paired = TRUE, #the values in the first set each correspond to a value in the other set
+       alternative = "two.sided") #must be two tailed to get the right confidence interval
 ```
 Rosati et al reported 95% confidence interval: [6.2, 48.4%]
 My 95% confidence interval: [6.24982, 48.43768%]
 
-Yay!
+Confidence intervals were successfully replicated.
 
-### Paired-Samples, One-Tailed T-test
+### 2c) Paired-Samples, One-Tailed T-test
 
 ```{r}
-t.test(Share ~ Condition, data = study1_share, paired = TRUE, alternative = "greater")
+t.test(Share ~ Condition, 
+       data = study1_share, 
+       paired = TRUE, #the values in the first set each correspond to a value in the other set
+       alternative = "greater") #testing if the observed mean difference is greater than 0
+                        #specifically, mean of Access is greater than mean of No Access
 ```
 
 Rosati et al reported values: t15 = 2.76, p < 0.05
 My values: t15 = 2.763, p = 0.007251
 
-Yay!
+Results of the t-test were successfully replicated.
 
-## Figure Replication
+## 3) Figure Replication
 
-Goal: replicate the barplots in this figure
 
+### 3a) Replicate two boxplots
+
+Original figure:
 ![](img/rosati_etal_figure.png)
-### (a) Overall plot
+#### (a) Overall plot
 
 ```{r}
 Overall <- ggbarplot(study1_share, #data
@@ -177,7 +205,7 @@ t.test(study1_share_access$Share) #one sample, two-tailed t-test to get confiden
 t.test(study1_share_noaccess$Share) #one sample, two-tailed t-test to get confidence intervals
 ```
 
-### (b) First Trial plot
+#### (b) First Trial plot
 Preparing dataframe for first-trial of each condition barplot:
 ```{r}
 study1_firsttrial <- study1[study1$Trial_condition == 1, ] #Subset of the whole study data using only first trials in each condition
@@ -228,12 +256,13 @@ Rosati et al. published figure for comparison:
 
 ![](img/rosati_etal_figure.png)
 
+### 3b) Suggest a boxplot as an alternative figure
 
-## Trial by Trial GLMMs
+## 4) Trial by Trial GLMMs
 
 Rosati et al used GLMMs fit as "binomial models with a logit link function using maximum likelihood."
 
-### Model Fitting
+### 4a) Model Fitting
 
 The base model included random subject intercepts (ID), individual’s average performance on comprehension check questions (Comp_prop_correct), and trial number within condition (Trial_condition). They did not report the parameters of this model, though I suspect that I failed to exactly replicate their method. For a later model, the authors did report the parameters, and while my results are close, they do not match.
 My attempt:
@@ -274,7 +303,7 @@ Rosati et al. published table:
 
 ![](img/rosati_etal_table.png)
 
-### Model Comparison
+### 4b) Model Comparison
 
 Rosati et al compared the models fits using likelihood ratio tests.
 
