@@ -148,111 +148,152 @@ Yay!
 
 ## Figure Replication
 
+Goal: replicate the barplots in this figure
+
+![](img/rosati_etal_figure.png)
+### (a) Overall plot
+
+```{r}
+Overall <- ggbarplot(study1_share, #data
+                     x = "Condition", y = "Share", #x and y variables
+ add = "mean_ci", #add the confidence interval error bar by calculating CI 
+ fill = "Condition", palette = c("gray39", "gray"), #fill colors
+          ylab = "Proportion Choices to Share", main = "(a) Overall", #labels
+ ylim = c(0,1)) + #extend y-axis higher
+  theme_bw() + #nice theme
+  theme(plot.title = element_text(hjust=0.5), #center plot title
+        legend.position="none", #remove legend (to be added back later)
+        axis.title.x = element_blank()) #remove x-axis label
+Overall
+```
+
+Problem: using multiple methods, I am getting different 95% confidence intervals for the means of each condition in figure S3(a). When I calculate the confidence intervals of the means outside of creating the figure (see below), I get confidence intervals that match my version of the figure: Access 95% CI = [0.670, 1.002], No Access = [0.374, 0.751.]. The figure in Rosati et al appears to have slightly narrower confidence intervals. The authors specified that the 95% confidence intervals are calculated within subject, so I know that is not the problem (though I also calculated the CIs for all trials independently just in case.)
+
+Confidence intervals of Share means for each condition:
+```{r}
+study1_share_access <- study1_share[study1_share$Condition == "Access",] #Subset of the data with Access trials only
+study1_share_noaccess <- study1_share[study1_share$Condition == "NoAccess",] #Subset of the data with NoAccess trials only
+t.test(study1_share_access$Share) #one sample, two-tailed t-test to get confidence intervals
+t.test(study1_share_noaccess$Share) #one sample, two-tailed t-test to get confidence intervals
+```
+
+### (b) First Trial plot
 Preparing dataframe for first-trial of each condition barplot:
 ```{r}
-study1_firsttrial <- study1[study1$Trial_condition == 1, ]
-prop_share_firsttrial <- aggregate(Share ~ Condition, data=study1_firsttrial, FUN = mean)
+study1_firsttrial <- study1[study1$Trial_condition == 1, ] #Subset of the whole study data using only first trials in each condition
+prop_share_firsttrial <- aggregate(Share ~ Condition, data=study1_firsttrial, FUN = mean) #calculate the mean of the first trials for each condition
 prop_share_firsttrial
 ```
 
-
+Plot:
 ```{r}
-share_summary <- study1_share %>%
-  group_by(Condition) %>%
-  summarise(
-    Quantile = quantile(StudentsT(df=15), 0.05 / 2) * sd(Share) / sqrt(16),
-    Share = mean(Share)
-  )
 
-ggbarplot(study1_share, x = "Condition", y = "Share",
+FirstTrial <- ggbarplot(prop_share_firsttrial, #use  the subsetted data with each subjects first trial in each condition
+                        x = "Condition", y = "Share", #x and y variables
+          fill = "Condition", palette = c("gray39", "gray"), #fill color
+          ylab = "Proportion Individuals Transferring", ylim = c(0,1), main = "(b) First Trial") +
+  theme_bw() + #nice theme
+  theme(plot.title = element_text(hjust=0.5), #center the plot title
+        legend.position="none", #remove legend (to be added back later)
+        axis.title.x = element_blank()) #remove x-axis label
+```
+
+Arrange the plots with one legend for both of them.
+```{r}
+#Just the first plot again but with the legend included in order to extract the legend
+Overall_withLegend <- ggbarplot(study1_share, x = "Condition", y = "Share",
  add = "mean_ci", lab.vjust = -1.6, fill = "Condition", 
           palette = c("gray39", "gray"),
           ylab = "Proportion Choices to Share", main = "(a) Overall", ylim = c(0,1)) +
   theme_bw() +
-  theme(plot.title = element_text(hjust=0.5), legend.position="none", axis.title.x = element_blank())
-
-Overall_withLegend <- ggbarplot(share_summary, x = "Condition", y = "Share", 
-          fill = "Condition", 
-          palette = c("gray39", "gray"),
-          ylab = "Proportion Choices to Share", main = "(a) Overall") +
-  geom_errorbar(aes(ymin = Share-Quantile, ymax=Share+Quantile), width = 0.1) +
-  theme_bw() +
   theme(plot.title = element_text(hjust=0.5), axis.title.x = element_blank())
 
-Overall <- ggbarplot(share_summary, x = "Condition", y = "Share", 
-          fill = "Condition", 
-          palette = c("gray39", "gray"),
-          ylab = "Proportion Choices to Share", main = "(a) Overall") +
-  geom_errorbar(aes(ymin = Share-Quantile, ymax=Share+Quantile), width = 0.1) +
-  theme_bw() +
-  theme(plot.title = element_text(hjust=0.5), legend.position="none", axis.title.x = element_blank())
-
-FirstTrial <- ggbarplot(prop_share_firsttrial, x = "Condition", y = "Share",
-          fill = "Condition", 
-          palette = c("gray39", "gray"),
-          ylab = "Proportion Individuals Transferring", ylim = c(0,1), main = "(b) First Trial") +
-  theme_bw() +
-  theme(plot.title = element_text(hjust=0.5), legend.position="none", axis.title.x = element_blank())
-```
-
-```{r}
+#a function to extract the legend from a plot (code from https://www.sthda.com/english/wiki/wiki.php?id_contents=7930#grid.arrange-create-and-arrange-multiple-plots)
 get_legend<-function(myggplot){
   tmp <- ggplot_gtable(ggplot_build(myggplot))
   leg <- which(sapply(tmp$grobs, function(x) x$name) == "guide-box")
   legend <- tmp$grobs[[leg]]
   return(legend)
 }
+
+#save the legend from the first plot using the function
 legend <- get_legend(Overall_withLegend)
 
-
+#an arrangement of the two plots and one legend for the two of them
 barplots <- ggarrange(Overall, FirstTrial, legend, ncol = 3, widths=c(2.3, 2.3, 0.8))
 barplots
 ```
 
-Rosati et al. published figure:
+Rosati et al. published figure for comparison:
 
 ![](img/rosati_etal_figure.png)
 
-Problem: using multiple methods, I am getting different 95% confidence intervals for the means of each condition in figure S3(a). When I calculate the confidence intervals of the means outside of creating the figure (see below), I get confidence intervals that match my version of the figure: Access 95% CI = [0.670, 1.002], No Access = [0.374, 0.751.]. The figure in Rosati et al appears to have slightly narrower confidence intervals. The authors specified that the 95% confidence intervals are calculated within subject, so I know that is not the problem (though I also calculated the CIs for all trials independently just in case.)
 
-Confidence intervals of Share means for each condition:
-```{r}
-study1_share_access <- study1_share[study1_share$Condition == "Access",]
-study1_share_noaccess <- study1_share[study1_share$Condition == "NoAccess",]
-t.test(study1_share_access$Share)
-t.test(study1_share_noaccess$Share)
-```
 ## Trial by Trial GLMMs
-"To analyze trial-by-trial binary responses, we implemented generalized linear mixed models (GLMM) in R v 3.6 [1] using the lme4 package [2] to fit binomial models with a logit link function using maximum likelihood. All models included **random subject intercepts** (to account for repeated measures) and an **individual’s average performance on comprehension check questions**; including comprehension check performance ensured that analyses accounted for any individual variation in task understanding (for example, between the two age groups). As relevant, models also included **trial number (within condition)** when performance across multiple trials per condition were analyzed, and partner identification response (for Study 3). We then **added our main predictors of interest to subsequent models to test their importance**, comparing model fit using likelihood ratio tests [3]. Post-hoc pair-wise comparisons of model predictors were computed using the emmeans package [4]. Graphs showing predicted effects and 95% confidence intervals (CIs) from these models were calculated using the effects package [5]. We calculated 95% confidence intervals (CIs) for descriptive statistics using the t-distribution, and graphs depicting 95% CIs as error bars were calculated using within-subject normalized CIs using the methods from [6], implemented using the RMisc package [7]."
 
-"We then examined 4-year-olds trial-by-trial choices using GLMMs to confirm that they distinguished the Access and No Access conditions when their responses were modeled as a binary outcome. A base model included trial number (1-8) and average performance on comprehension check questions. A second model then added condition as an additional predictor, which improved model fit (LRT: χ 2 = 34.54, df = 1, p < 0.0001). This indicates that 4-year-olds did differentiate these situations, sharing more in the Access condition. A final model then added the interaction between trial number and condition to examine if there were learning effects or other changes over trials that differed by condition. In fact, this did not improve model fit (LRT: χ2 = 0.88, df = 1, p = 0.34, n.s.; see Table S1 for parameters and Figure S3c), suggesting that children showed fairly consistent performance across the session."
+Rosati et al used GLMMs fit as "binomial models with a logit link function using maximum likelihood."
 
-*Share ~ Condition + Trial_condition + (1|ID) + ϵ*
+### Model Fitting
+
+The base model included random subject intercepts (ID), individual’s average performance on comprehension check questions (Comp_prop_correct), and trial number within condition (Trial_condition). They did not report the parameters of this model, though I suspect that I failed to exactly replicate their method. For a later model, the authors did report the parameters, and while my results are close, they do not match.
+My attempt:
 ```{r}
-basemod = glmer(data = study1, formula = Share ~ Trial_condition + Comp_prop_correct + (1 | ID), family = binomial(link = "probit"))
+basemod = glmer(data = study1, #glmer() function in {lme4} for GLMMs; specify data
+                formula = Share ~ #binary response variable
+                  Trial_condition + Comp_prop_correct + #fixed effect predictor variables
+                  (1 | ID), #random intercepts grouped by subject (ID)
+                family = binomial(link = "probit")) #specifies link function for a binomial model
 
 summary(basemod)
 ```
+
+Rosati et al's second model added Condition as a main predictor variable. Surprisingly, they did not report the specific parameters of this model despite this one being the best fit.
+My attempt:
 ```{r}
-conditionmod = glmer(data = study1, formula = Share ~ Trial_condition + Comp_prop_correct + Condition + (1 | ID), family = binomial(link = "probit"))
+conditionmod = glmer(data = study1, 
+                     formula = Share ~ Trial_condition + Comp_prop_correct + 
+                       Condition + #additional response variable
+                       (1 | ID), 
+                     family = binomial(link = "probit"))
 
 summary(conditionmod)
 ```
 
+Rosati et al. also tested a third model adding Condition by Trial interaction as an additional main predictor variable. The authors reported the parameters from this model in their supplementary material. My results follow a similar pattern but do not match exactly, suggesting that I have made an error in how I have set up these models. I suspect that any error would be in the formatting of the formula.
+My attempt:
 ```{r}
-LRT1<-anova(basemod, conditionmod)
-LRT1
-```
-
-
-```{r}
-fullmod = glmer(data = study1, formula = Share ~ Trial_condition + Comp_prop_correct + Condition + Condition*Trial_condition + (1 | ID), family = binomial(link = "probit"))
+fullmod = glmer(data = study1, 
+                formula = Share ~ Trial_condition + Comp_prop_correct + Condition + 
+                  Condition*Trial_condition + #additional response variable with interaction
+                  (1 | ID), 
+                family = binomial(link = "probit"))
 
 summary(fullmod)
 ```
+Rosati et al. published table:
 
+![](img/rosati_etal_table.png)
+
+### Model Comparison
+
+Rosati et al compared the models fits using likelihood ratio tests.
+
+Comparing the condition-only model to the base model show a significantly improved fit.
+My attempt:
 ```{r}
-LRT2<-anova(conditionmod, fullmod)
+LRT1<-anova(basemod, conditionmod) #likelihood ratio test using anova() to compare two models
+LRT1
+```
+Rosati et al reported values: χ2 = 34.54, df = 1, p < 0.0001
+My values: χ2 = 33.697, df = 1, p = 6.442e-09
+
+Comparing the full model (with Condition and ConditionxTrial) to the condition-only model did not signficantly improve the fit.
+My attempt:
+```{r}
+LRT2<-anova(conditionmod, fullmod) #likelihood ratio test using anova() to compare two models
 LRT2
 ```
+Rosati et al reported values: χ2 = 0.88, df = 1, p = 0.34, n.s.
+My values: χ2 = 0.9538, df = 1, p = 0.3288, n.s.
 
+The results of my test were similar to Rosati et al's, but because my chi square value is different, I suspect that the outcomes of my models did not match the reported models in the first place. While this is most likely an error on my part, Rosati et al could have improved the ease of replication of there analyses by including the formulas of the models they tested and the outcomes of each model as they did for their third model in the supplementary materials.
