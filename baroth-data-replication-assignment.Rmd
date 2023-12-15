@@ -1,40 +1,51 @@
 ---
 title: "baroth-data-replication-assignment"
 author: "Brooke Rothamer"
-date: "'2023-11-02"
-output: html_document
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    theme: cerulean
+    toc: yes
+    toc_float:
+      collapsed: FALSE
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE, warning = FALSE, comment = "##", prompt = TRUE, tidy = TRUE, tidy.opts = list(width.cutoff = 75), fig.path = "img/")
 ```
 
+![Economic Trust Game Setup (Rosati et al. 2019)](img/rosati_etal_trustgame.png)
+
 # Overview
 
-In this analysis, I will replicate the analyses in Study 1 of Rosati et al. (2019), "Economic trust in young children."
+I replicated the analyses in Study 1 of Rosati et al. (2019), "Economic trust in young children."
 
-The purpose of Study 1 was to test whether 4-year-olds, the youngest participants (age 4), could comprehend the rules of the economic game used to test economic trust in the later studies. Rosati et al. tested 1) average performance on comprehension tests, 2) average performance in two conditions, and 3) trial-by-trial performance accounting for repeated measures, condition, trial number, and comprehension check scores.
+The general purpose of studies 1-3 was to understand how cooperative trust develops in children using an economic trust game. Overall, the studies demonstrated that children as young as 4 years share more when it is possible for others to reciprocate, and 6-year-olds are better than 4-year-olds at preferring to share with trustworthy partners.
 
-The analyses I replicate:
-1) Performance on comprehension tests
-  1a) Mean
-  1b) Confidence interval
-  1c) One sample, one-tailed t-test
-2) Comparison of performance in two conditions of the game
-  2a) Means
-  2b) Confidence intervals
-  2c) Two sample, one-tailed t-test
-3) Figure replication
-  3a) Replicate two barplots
-  3b) Suggest a boxplot as an alternative
-4) Trial-by-trial performance in two conditions of the game
-  4a) GLMM Fitting
-  4b) GlMM Comparison using likelihood ratio tests
+The purpose of Study 1, specifically, was to test whether the youngest participants (age 4) could comprehend the rules of the games used to test economic trust in the later studies. Rosati et al. tested 1) average performance on comprehension tests, 2) average performance in two conditions, and 3) trial-by-trial performance accounting for repeated measures, condition, trial number, and comprehension check scores.
+
+The analyses I replicated:
+
+1. Comprehension test performance
+    + Mean
+    + Confidence interval
+    + One sample, one-tailed t-test
+2. Comparison of two experimental conditions (Access/No Access)
+   + Means
+   + Confidence intervals
+   + Two sample, one-tailed t-test
+3. Figure replication
+   + Replicate two barplots
+   + Suggest a boxplot as an alternative
+4. Trial-by-trial performance in two conditions of the game
+   + GLMM Fitting
+   + GlMM Comparison using likelihood ratio tests
+  
 # Preparation
 
 Installing packages:
 
-* Install: {tidyverse}, {distributions3}, {ggpubr}, {gridExtra}, {lme4}, {emmeans}, {effects}, {Rmisc}, {Matrix}
+* Install: {tidyverse}, {distributions3}, {ggpubr}, {lme4}, {Matrix}
 
 * Certain versions of {Matrix} and {lme4} have a compatibility issue. I had to manually delete both packages and reinstall, following the advice of Mikael Jagan at https://stackoverflow.com/questions/77481539/error-in-initializeptr-function-cholmod-factor-ldeta-not-provided-by-pack
 ```{r, eval=FALSE}
@@ -46,10 +57,9 @@ options(oo)
 
 Load in packages.
 ```{r, warning=FALSE}
-library(tidyverse) #for some of the data organizing
+library(tidyverse) #for data organizing
 library(distributions3) #for StudentsT()
-library(ggpubr) #for ggplot functions and ggarrange()
-library(gridExtra) 
+library(ggpubr) #for ggbarplot(), ggboxplot(), and ggarrange()
 library(lme4) #for glmer()
 library(Matrix) #for glmer()
 ```
@@ -60,11 +70,15 @@ study1 <- read.csv("https://raw.githubusercontent.com/Brothamer/baroth-data-repl
 head(study1)
 ```
 
+This data includes results for n=16 four-year-old participants (ID). The independent variable being tested is a binary measure of whether children did or did not share/transfer tokens in a trust game (Share). Each participant was tested in 16 trials (Trial_absolute: 1-16). Half of these trials were in a condition where children had access to the "other side" of the game (Condition = Access), meaning they could receive the materials they successfully transferred. For the other half of the trials, the children could not access the other side of the game (Condition = NoAccess). The data include a variable for the trial number within each condition (Trial_condition). The children also completed 6 comprehension checks during the trials. The data includes the average score of those six comprehension checks (Comp_prop_correct) which is the same value for every trial that child participated in.
+
+# Analyses
+
 ## 1) Comprehension Tests
 
 Do 4-year-olds show above chance (50%) performance on comprehension questions?
-Ho: Performance is not greater than 50%.
-HA: Performance is greater than 50%.
+* Ho: Performance is not greater than 50%.
+* HA: Performance is greater than 50%.
 
 Subsetting the data frame to have one entry per subject because each subject only has 1 score for comprehension proportion:
 ```{r}
@@ -77,7 +91,7 @@ head(study1_comprehension)
 
 Mean comprehension proportion correct:
 ```{r}
-comprehension_mean <- mean(study1_comprehension$Comp_prop_correct)
+comprehension_mean <- mean(study1_comprehension$Comp_prop_correct) #take a mean
 comprehension_mean
 ```
 Rosati et al. reported mean: 69.8%
@@ -89,9 +103,9 @@ Mean was successfully replicated.
 
 Confidence interval of the mean:
 ```{r}
-#upper = mean + (quantile method confidence level)(sample standard error)/(sqrt(n))
+#upper = mean + (quantile of Student's T distribution)(sample standard error)/(sqrt(n))
 mean(study1_comprehension$Comp_prop_correct) +  quantile(StudentsT(df=15), 0.05 / 2) * sd(study1_comprehension$Comp_prop_correct) / sqrt(16)
-#lower= mean - (quantile method confidence level)(sample standard error)/(sqrt(n))
+#lower= mean - (uantile of Student's T distribution)(sample standard error)/(sqrt(n))
 mean(study1_comprehension$Comp_prop_correct) + quantile(StudentsT(df=15), 1 - 0.05 / 2) * sd(study1_comprehension$Comp_prop_correct) / sqrt(16)
 
 #Or
