@@ -1524,12 +1524,14 @@ scores.</p>
 <li>Comprehension test performance
 <ul>
 <li>Mean</li>
+<li>Check for normal distribution</li>
 <li>Confidence interval</li>
 <li>One sample, one-tailed t-test</li>
 </ul></li>
 <li>Comparison of two experimental conditions (Access/No Access)
 <ul>
 <li>Means</li>
+<li>Check for normal distribution</li>
 <li>Confidence intervals</li>
 <li>Two sample, one-tailed t-test</li>
 </ul></li>
@@ -1651,8 +1653,13 @@ subject only has 1 score for comprehension proportion:</p>
 <p>Rosati et al. reported mean: 69.8% My mean: 69.8125%</p>
 <p>Mean was successfully replicated.</p>
 </div>
-<div id="b-confidence-interval" class="section level3">
-<h3>1b) Confidence Interval</h3>
+<div id="b-check-for-normal-distribution" class="section level3">
+<h3>1b) Check for Normal Distribution</h3>
+<p>n &lt; 30, so it is appropriate to check if the data is normally
+distributed</p>
+</div>
+<div id="c-confidence-interval" class="section level3">
+<h3>1c) Confidence Interval</h3>
 <p>Confidence interval of the mean:</p>
 <pre class="r"><code>&gt; #upper = mean + (quantile of Student&#39;s T distribution)(sample standard error)/(sqrt(n))
 &gt; mean(study1_comprehension$Comp_prop_correct) +  quantile(StudentsT(df=15), 0.05 / 2) * sd(study1_comprehension$Comp_prop_correct) / sqrt(16)</code></pre>
@@ -1679,8 +1686,8 @@ subject only has 1 score for comprehension proportion:</p>
 confidence interval: [55.23865, 88.438635%]</p>
 <p>Confidence interval was successfully replicated.</p>
 </div>
-<div id="c-one-sample-one-tailed-t-test" class="section level3">
-<h3>1c) One-Sample, One-Tailed T-test</h3>
+<div id="d-one-sample-one-tailed-t-test" class="section level3">
+<h3>1d) One-Sample, One-Tailed T-test</h3>
 <p>One sample, one-tailed T test of whether the mean percent correct is
 greater than chance (50%).</p>
 <pre class="r"><code>&gt; t.test(study1_comprehension$Comp_prop_correct, 
@@ -1736,8 +1743,11 @@ each subject:</p>
 means: Access = 83.59375%, No Access = 56.25000%</p>
 <p>Means were successfully replicated.</p>
 </div>
-<div id="b-confidence-intervals-of-the-mean-difference" class="section level3">
-<h3>2b) Confidence intervals of the mean difference</h3>
+<div id="b-check-for-normal-distribution-1" class="section level3">
+<h3>2b) Check for Normal Distribution</h3>
+</div>
+<div id="c-confidence-intervals-of-the-mean-difference" class="section level3">
+<h3>2c) Confidence intervals of the mean difference</h3>
 <pre class="r"><code>&gt; t.test(Share ~ Condition, 
 +        data = study1_share, 
 +        paired = TRUE, #the values in the first set each correspond to a value in the other set
@@ -1757,8 +1767,8 @@ means: Access = 83.59375%, No Access = 56.25000%</p>
 confidence interval: [6.24982, 48.43768%]</p>
 <p>Confidence intervals were successfully replicated.</p>
 </div>
-<div id="c-paired-samples-one-tailed-t-test" class="section level3">
-<h3>2c) Paired-Samples, One-Tailed T-test</h3>
+<div id="d-paired-samples-one-tailed-t-test" class="section level3">
+<h3>2d) Paired-Samples, One-Tailed T-test</h3>
 <pre class="r"><code>&gt; t.test(Share ~ Condition, 
 +        data = study1_share, 
 +        paired = TRUE, #the values in the first set each correspond to a value in the other set

@@ -28,10 +28,12 @@ The analyses I replicated:
 
 1. Comprehension test performance
     + Mean
+    + Check for normal distribution
     + Confidence interval
     + One sample, one-tailed t-test
 2. Comparison of two experimental conditions (Access/No Access)
    + Means
+   + Check for normal distribution
    + Confidence intervals
    + Two sample, one-tailed t-test
 3. Figure replication
@@ -99,7 +101,11 @@ My mean: 69.8125%
 
 Mean was successfully replicated.
 
-### 1b) Confidence Interval
+### 1b) Check for Normal Distribution
+
+n < 30, so it is appropriate to check if the data is normally distributed. 
+
+### 1c) Confidence Interval
 
 Confidence interval of the mean:
 ```{r}
@@ -118,7 +124,7 @@ My 95% confidence interval: [55.23865, 88.438635%]
 
 Confidence interval was successfully replicated.
 
-### 1c) One-Sample, One-Tailed T-test
+### 1d) One-Sample, One-Tailed T-test
 
 One sample, one-tailed T test of whether the mean percent correct is greater than chance (50%).
 ```{r}
@@ -159,7 +165,9 @@ My means: Access = 83.59375%, No Access = 56.25000%
 
 Means were successfully replicated.
 
-### 2b) Confidence intervals of the mean difference
+### 2b) Check for Normal Distribution
+
+### 2c) Confidence intervals of the mean difference
 ```{r}
 t.test(Share ~ Condition, 
        data = study1_share, 
@@ -171,7 +179,7 @@ My 95% confidence interval: [6.24982, 48.43768%]
 
 Confidence intervals were successfully replicated.
 
-### 2c) Paired-Samples, One-Tailed T-test
+### 2d) Paired-Samples, One-Tailed T-test
 
 ```{r}
 t.test(Share ~ Condition, 
@@ -274,18 +282,18 @@ Rosati et al. published figure for comparison:
 
 ## 4) Trial by Trial GLMMs
 
-Rosati et al used GLMMs fit as "binomial models with a logit link function using maximum likelihood."
+Rosati et al used GLMMs fit as "binomial models with a logit link function using maximum likelihood." They also specified that they used the {lme4} package in R, so I can be confident that I am at least using the same function, glmer().
 
 ### 4a) Model Fitting
 
-The base model included random subject intercepts (ID), individual’s average performance on comprehension check questions (Comp_prop_correct), and trial number within condition (Trial_condition). They did not report the parameters of this model, though I suspect that I failed to exactly replicate their method. For a later model, the authors did report the parameters, and while my results are close, they do not match.
+The base model included random subject intercepts (ID), individual’s average performance on comprehension check questions (Comp_prop_correct), and trial number within condition (Trial_condition). They did not report the parameters of this model, though I suspect that I failed to exactly replicate their method. For a later model, the authors did report the parameters, and while my results are very close, they do not match exactly.
 My attempt:
 ```{r}
 basemod = glmer(data = study1, #glmer() function in {lme4} for GLMMs; specify data
                 formula = Share ~ #binary response variable
                   Trial_condition + Comp_prop_correct + #fixed effect predictor variables
                   (1 | ID), #random intercepts grouped by subject (ID)
-                family = binomial(link = "probit")) #specifies link function for a binomial model
+                family = binomial(link = "logit")) #specifies link function for a binomial model
 
 summary(basemod)
 ```
@@ -297,25 +305,27 @@ conditionmod = glmer(data = study1,
                      formula = Share ~ Trial_condition + Comp_prop_correct + 
                        Condition + #additional response variable
                        (1 | ID), 
-                     family = binomial(link = "probit"))
+                     family = binomial(link = "logit"))
 
 summary(conditionmod)
 ```
 
-Rosati et al. also tested a third model adding Condition by Trial interaction as an additional main predictor variable. The authors reported the parameters from this model in their supplementary material. My results follow a similar pattern but do not match exactly, suggesting that I have made an error in how I have set up these models. I suspect that any error would be in the formatting of the formula.
+Rosati et al. also tested a third model adding Condition by Trial interaction as an additional main predictor variable. The authors reported the parameters from this model in their supplementary material.
 My attempt:
 ```{r}
 fullmod = glmer(data = study1, 
                 formula = Share ~ Trial_condition + Comp_prop_correct + Condition + 
                   Condition*Trial_condition + #additional response variable with interaction
                   (1 | ID), 
-                family = binomial(link = "probit"))
+                family = binomial(link = "logit"), nAGQ = 1)
 
 summary(fullmod)
 ```
 Rosati et al. published table:
 
 ![](img/rosati_etal_table.png)
+
+Again, I did not exactly replicate their analyses, but it does appear that I came very close. Therefore, I suspect that my models differ from theirs in some setting. For example, I assumed that Rosati et al left the nAGQ argument set to 1 for a Laplace approximation. However, the authors did not specify the exact model, so it is possible that that assumption was incorrect.
 
 ### 4b) Model Comparison
 
@@ -328,15 +338,15 @@ LRT1<-anova(basemod, conditionmod) #likelihood ratio test using anova() to compa
 LRT1
 ```
 Rosati et al reported values: χ2 = 34.54, df = 1, p < 0.0001
-My values: χ2 = 33.697, df = 1, p = 6.442e-09
+My values: χ2 = 34.538, df = 1, p = 4.18e-09
 
-Comparing the full model (with Condition and ConditionxTrial) to the condition-only model did not signficantly improve the fit.
+The authors found that comparing the full model (including fixed effects of Condition and Condition x Trial) to the condition-only model did not signficantly improve the fit.
 My attempt:
 ```{r}
 LRT2<-anova(conditionmod, fullmod) #likelihood ratio test using anova() to compare two models
 LRT2
 ```
 Rosati et al reported values: χ2 = 0.88, df = 1, p = 0.34, n.s.
-My values: χ2 = 0.9538, df = 1, p = 0.3288, n.s.
+My values: χ2 = 0.8753, df = 1, p = 0.3495, n.s.
 
-The results of my test were similar to Rosati et al's, but because my chi square value is different, I suspect that the outcomes of my models did not match the reported models in the first place. While this is most likely an error on my part, Rosati et al could have improved the ease of replication of there analyses by including the formulas of the models they tested and the outcomes of each model as they did for their third model in the supplementary materials.
+Despite having some differences in the third model, the results of my tests were similar to Rosati et al's. They would appear exact except the p-value in my second comparison is slightly higher, hinting that the models were not a match to begin with. While this is most likely an error on my part, Rosati et al could have improved the ease of replication of their analyses by including the formulas and specifications of the models they tested and the outcomes of each model as they did for their third model in the supplementary materials.
