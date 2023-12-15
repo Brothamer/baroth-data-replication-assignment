@@ -28,26 +28,26 @@ The analyses I replicated:
 
 1. Comprehension test performance
     + Mean
-    + Check for normal distribution
+    + Shapiro-Wilkes test for normal distribution
     + Confidence interval
     + One sample, one-tailed t-test
 2. Comparison of two experimental conditions (Access/No Access)
    + Means
-   + Check for normal distribution
    + Confidence intervals
    + Two sample, one-tailed t-test
 3. Figure replication
    + Replicate two barplots
-   + Suggest a boxplot as an alternative
 4. Trial-by-trial performance in two conditions of the game
    + GLMM Fitting
-   + GlMM Comparison using likelihood ratio tests
+   + GLMM Comparison using likelihood ratio tests
+
+**All the required components of this assignment are met within sections 1) and 3). For ease of grading, only those two sections are necessary to read. I included the other analyses because I wanted to see one study all the way through and try GLMMs.**  
   
 # Preparation
 
 Installing packages:
 
-* Install: {tidyverse}, {distributions3}, {ggpubr}, {lme4}, {Matrix}
+* Install: {tidyverse}, {nortest}, {twosamples}, {distributions3}, {ggpubr}, {lme4}, {Matrix}
 
 * Certain versions of {Matrix} and {lme4} have a compatibility issue. I had to manually delete both packages and reinstall, following the advice of Mikael Jagan at https://stackoverflow.com/questions/77481539/error-in-initializeptr-function-cholmod-factor-ldeta-not-provided-by-pack
 ```{r, eval=FALSE}
@@ -60,6 +60,8 @@ options(oo)
 Load in packages.
 ```{r, warning=FALSE}
 library(tidyverse) #for data organizing
+library(nortest) #for ad.test
+library(twosamples) #for ad_test()
 library(distributions3) #for StudentsT()
 library(ggpubr) #for ggbarplot(), ggboxplot(), and ggarrange()
 library(lme4) #for glmer()
@@ -79,7 +81,7 @@ This data includes results for n=16 four-year-old participants (ID). The indepen
 ## 1) Comprehension Tests
 
 Do 4-year-olds show above chance (50%) performance on comprehension questions?
-* Ho: Performance is not greater than 50%.
+* H0: Performance is not greater than 50%.
 * HA: Performance is greater than 50%.
 
 Subsetting the data frame to have one entry per subject because each subject only has 1 score for comprehension proportion:
@@ -101,9 +103,19 @@ My mean: 69.8125%
 
 Mean was successfully replicated.
 
-### 1b) Check for Normal Distribution
+### 1b) Anderson-Darling for Normal Distribution
 
-n < 30, so it is appropriate to check if the data is normally distributed. 
+In the data, n < 30, so it is appropriate to check if the data is normally distributed. Assumedly, Rosati et al. would also have checked for normality before conducting their analyses.
+
+I used an Anderson-Darling Test for normality because it can accept a small sample size of n=16. A Shapiro-Wilk test would have greater power but may be too sensitive for testing the assumptions of a t-test (referring to the module presented by Erin Anderson, Lillian Holden, Amanda Wu, and Emily Yang).
+
+* H0: the sample follows a normal distribution
+* HA: the sample does not follow a normal distribution
+
+```{r}
+ad.test(study1_comprehension$Comp_prop_correct)
+```
+The p-value is not significant at greater than 0.05. Therefore this test fails to reject the null hypothesis that the data is normally distributed. Therefore, we can continue with tests that assume no significant variation from a normal distribution.
 
 ### 1c) Confidence Interval
 
@@ -165,9 +177,7 @@ My means: Access = 83.59375%, No Access = 56.25000%
 
 Means were successfully replicated.
 
-### 2b) Check for Normal Distribution
-
-### 2c) Confidence intervals of the mean difference
+### 2b) Confidence intervals of the mean difference
 ```{r}
 t.test(Share ~ Condition, 
        data = study1_share, 
@@ -179,7 +189,7 @@ My 95% confidence interval: [6.24982, 48.43768%]
 
 Confidence intervals were successfully replicated.
 
-### 2d) Paired-Samples, One-Tailed T-test
+### 2c) Paired-Samples, One-Tailed T-test
 
 ```{r}
 t.test(Share ~ Condition, 
@@ -196,8 +206,9 @@ Results of the t-test were successfully replicated.
 
 ## 3) Figure Replication
 
-
 ### 3a) Replicate two boxplots
+
+The figure I am replicating actually appears in the supplementary materials, not the main publication. This is because I want to replicate a figure relevant to the rest of the analyses I replicated, and no figures from Study 1 are included in the main publication.
 
 Original figure:
 ![](img/rosati_etal_figure.png)
@@ -246,6 +257,7 @@ FirstTrial <- ggbarplot(prop_share_firsttrial, #use  the subsetted data with eac
   theme(plot.title = element_text(hjust=0.5), #center the plot title
         legend.position="none", #remove legend (to be added back later)
         axis.title.x = element_blank()) #remove x-axis label
+FirstTrial
 ```
 
 Arrange the plots with one legend for both of them.
@@ -277,8 +289,6 @@ barplots
 Rosati et al. published figure for comparison:
 
 ![](img/rosati_etal_figure.png)
-
-### 3b) Suggest a boxplot as an alternative figure
 
 ## 4) Trial by Trial GLMMs
 
